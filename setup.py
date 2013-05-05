@@ -3,8 +3,8 @@ from distutils.core import setup
 
 data_files = [
             ('db',          ['db\Base.adb']),
-            ('sqldrivers',  ['D:\Python27\Lib\site-packages\PyQt4\plugins\sqldrivers\qsqlite4.dll']),
-            ('imageformats',['D:\Python27\Lib\site-packages\PyQt4\plugins\imageformats\qico4.dll']),
+            ('sqldrivers',  ['dll\qsqlite4.dll']),
+            ('imageformats',['dll\qico4.dll']),
             ('icons',       ['icons\Add.ico',
                              'icons\Edit.ico',
              		     'icons\Delete.ico',
