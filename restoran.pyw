@@ -3,159 +3,17 @@
 @author: Milan
 '''
 
-
 import sys
+import threading
 from PyQt4 import QtGui, QtCore, Qt, QtSql
+from windows import Login, CalendarDialog, InactivityFilter, AddEditArticle
+from base import Article, Transaction
+
+inactivity_timeout=1 #dali da ima log
 
 def d2u(text):
     "konverzija vo UTF-8"
     return text.decode('utf-8')
-
-#-------------------- / Bazni Klasi-------------------------------
-
-class Article(object):
-    def __init__(self,List=None):
-        if List is None:
-            List = [""]*5
-        self.ID=List[0]
-        self.Parent=List[1]
-        self.Name=List[2]
-        self.Price=List[3]
-        self.Tax=List[4]
-        
-    def get_list(self):
-        return [self.ID,self.Parent,self.Name,self.Price,self.Tax]
-
-class Transaction(object):
-    def __init__(self,List=None):
-        if List is None:
-            List=[""]*7
-        self.ID=List[0]
-        self.Type=List[1]
-        self.Name=List[2]
-        self.Price=List[3]
-        self.Tax=List[4]
-        self.Quantity=List[5]
-        self.Count=List[6]
-        self.DateCreated = unicode(QtCore.QDate.currentDate().toPyDate().strftime('%Y-%m-%d'))
-        self.TimeCreated = unicode(QtCore.QTime.currentTime().toPyTime().strftime('%H:%M:%S'))
-        self.Comment = ""
-
-    def get_list(self):
-        return [self.ID,self.Type,self.Name,self.Price,self.Tax,self.Quantity,self.Count]
-
-#--------------------------- / Kalendar ----------------------------------
-
-class CalendarDialog(QtGui.QDialog):
-    def __init__(self,Parent=None):
-        QtGui.QDialog.__init__(self)
-        self.setWindowTitle(d2u('Календар'))
-        self.setWindowIcon(QtGui.QIcon("icons/Add.ico"))
-        self.resize(300,100)
-        
-        # vertical layout for widgets
-        self.vbox = QtGui.QVBoxLayout()
-        self.setLayout(self.vbox)
-        
-        # Create a calendar widget and add it to our layout
-        self.cal = QtGui.QCalendarWidget()
-        self.vbox.addWidget(self.cal)
-
-        self.ButtonOK = QtGui.QPushButton(d2u("Изврши"))
-        self.connect(self.ButtonOK,QtCore.SIGNAL("clicked()"),self.OKClicked)
-        self.ButtonCancel = QtGui.QPushButton(d2u("Излез"))
-        self.connect(self.ButtonCancel,QtCore.SIGNAL("clicked()"),self.reject)
-
-        OKCancelLayout = QtGui.QHBoxLayout()
-        OKCancelLayout.addStretch()
-        OKCancelLayout.addWidget(self.ButtonOK)
-        OKCancelLayout.addWidget(self.ButtonCancel)
-
-        self.vbox.addLayout(OKCancelLayout)
-        
-        self.selectedDate=self.cal.selectedDate()
-
-    def OKClicked(self):
-        self.selectedDate = self.cal.selectedDate()
-        self.accept()
-
-#--------------------------- /Meni za artiklite ---------------------------
-
-class AddEditArticle(QtGui.QDialog):
-    def __init__(self,Parent=None,aArticle=None):
-        QtGui.QDialog.__init__(self,Parent)
-        self.myArticle=Article()
-        if not aArticle:
-            self.setWindowTitle(d2u("Внеси Артикл"))
-            self.setWindowIcon(QtGui.QIcon("icons/Add.ico"))
-        else:
-            self.setWindowTitle(d2u("Промени Артикл"))
-            self.setWindowIcon(QtGui.QIcon("icons/Edit.ico"))
-            self.myArticle=aArticle
-        self.CreateCentralWidget()
-        self.FillArticleWidgets()
-    
-    def CreateCentralWidget(self):
-        MainLayout = QtGui.QGridLayout()
-        OKCancelLayout = QtGui.QHBoxLayout()
-        
-        self.TreeArticle = QtGui.QTreeWidget()
-        self.TreeArticle.setColumnCount(2)
-        #0 Article First Line
-        #1 ID
-        self.TreeArticle.setSortingEnabled(True)
-        self.TreeArticle.sortByColumn(0)
-        self.TreeArticle.setHeaderHidden(True)
-        self.TreeArticle.hideColumn(1)
-        
-        self.TextName  = QtGui.QLineEdit()
-        self.TextPrice = QtGui.QLineEdit()
-        self.TextTax   = QtGui.QLineEdit()
-        
-        self.ButtonOK = QtGui.QPushButton(d2u("Изврши"))
-        self.connect(self.ButtonOK,QtCore.SIGNAL("clicked()"),self.OKClicked)
-        self.ButtonCancel = QtGui.QPushButton(d2u("Излез"))
-        self.connect(self.ButtonCancel,QtCore.SIGNAL("clicked()"),self.reject)
-        
-        OKCancelLayout.addStretch()
-        OKCancelLayout.addWidget(self.ButtonOK)
-        OKCancelLayout.addWidget(self.ButtonCancel)
-        
-        MainLayout.addWidget(QtGui.QLabel(d2u("Категорија")),0,0)
-        MainLayout.addWidget(self.TreeArticle,1,0,3,1)
-        MainLayout.addWidget(QtGui.QLabel(d2u("Име")),1,2)
-        MainLayout.addWidget(self.TextName,1,3)
-        MainLayout.addWidget(QtGui.QLabel(d2u("Цена")),2,2)
-        MainLayout.addWidget(self.TextPrice,2,3)
-        MainLayout.addWidget(QtGui.QLabel(d2u("Данок")),3,2)
-        MainLayout.addWidget(self.TextTax,3,3)
-        MainLayout.addLayout(OKCancelLayout,4,0,1,5)
-        
-        self.setLayout(MainLayout)
-
-    def FillArticleWidgets(self):
-        self.TextName.setText(self.myArticle.Name)
-        self.TextPrice.setText(self.myArticle.Price)
-        self.TextTax.setText(self.myArticle.Tax)
-        
-        #Fill tree
-        RootWidget = QtGui.QTreeWidgetItem(self.TreeArticle,[d2u("Основа"),"0"])
-        self.TreeArticle.setCurrentItem(RootWidget)
-        for aArticle in self.parent().TreeArticleList.findItems("0",Qt.Qt.MatchExactly,2):
-            if str(aArticle.text(1))==self.myArticle.ID:
-                continue
-            QtGui.QTreeWidgetItem(RootWidget,[aArticle.text(0),aArticle.text(1)])
-        self.TreeArticle.expandAll()
-        if self.myArticle.ID!='':
-            self.TreeArticle.setCurrentItem(self.TreeArticle.findItems(self.myArticle.Parent,Qt.Qt.MatchRecursive,1)[0])
-        
-    def OKClicked(self):
-        self.myArticle.Parent=unicode(self.TreeArticle.selectedItems()[0].text(1))
-        self.myArticle.Name=unicode(self.TextName.text())
-        self.myArticle.Price=unicode(self.TextPrice.text())
-        self.myArticle.Tax=unicode(self.TextTax.text())
- 
-        self.accept()
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -173,7 +31,20 @@ class MainWindow(QtGui.QMainWindow):
         #self.CreateMenu()
         self.DatabaseDefaultOpen()
 
-#------------------------------- /Glaven Prozor ---------------------------------------- 
+        if (inactivity_timeout): 
+            self.event_filter = InactivityFilter()
+            QtCore.QCoreApplication.instance().installEventFilter(self.event_filter)
+            self.connect(self.event_filter, QtCore.SIGNAL("timeout()"), self.TimeOut)
+        else:
+            self.event_filter = None
+        
+        self.TimeOut()    
+
+    def TimeOut(self):
+        Log = Login(self)
+        Log.showFullScreen()
+        if Log.exec_():
+            self.disconnect(self.event_filter, QtCore.SIGNAL("activity"), self.TimeOut)
 
     def CreateCentralWidget(self):
         LayoutCentral = QtGui.QGridLayout()
@@ -284,7 +155,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def NaracajClicked(self):
         """
-        Ja zapisuva vnesenata naracka vo baza za transakcii i aktivni transakcii
+        Ja zapisuva vnesenata naracka vo tabela za transakcii i aktivni transakcii
         Avtomatski generira broj na smetka 
         Azurira prikaz na aktivni transakcii
         """
@@ -311,7 +182,7 @@ class MainWindow(QtGui.QMainWindow):
                     self.myTransaction.Count = unicode(QtCore.QString(str(self.CountNumber)))
                     self.myTransaction.Comment = unicode(self.TextComment.text())
 
-                    #zapisuvanje vo dvete bazi
+                    #zapisuvanje vo dvete tabeli
                     self.DatabaseActiveTransactionAdd(self.myTransaction)
                     ID = self.DatabaseTransactionAdd(self.myTransaction)
                     self.myTransaction.ID = ID
@@ -383,15 +254,15 @@ class MainWindow(QtGui.QMainWindow):
         return action
     
     def CreateActions(self):
-        self.ActionDatabaseNew = self.CreateAction("New Database...",self.TriggeredDatabaseNew,"Ctrl+T","icons/New","Create a article database")
-        self.ActionDatabaseOpen = self.CreateAction("Open Article Database...",self.TriggeredDatabaseOpen,"Ctrl+O","icons/Open","Open existing article database")
-        self.ActionArticleAdd = self.CreateAction("Add Article...",self.TriggeredArticleAdd,"Ctrl+A","icons/Add",d2u("Внеси артикл"))
-        self.ActionArticleEdit = self.CreateAction("Edit Article...",self.TriggeredArticleEdit,"Ctrl+E","icons/Edit",d2u("Промени артикл"))
-        self.ActionArticleDelete = self.CreateAction("Delete Article",self.TriggeredArticleDelete,"Ctrl+D","icons/Delete",d2u("Избриши артикл"))
+        self.ActionDatabaseNew = self.CreateAction("Nova Baza...",self.TriggeredDatabaseNew,"Ctrl+T","icons/New",d2u("Направи нова база (артикли,трансакции)"))
+        self.ActionDatabaseOpen = self.CreateAction("Otvori Basa...",self.TriggeredDatabaseOpen,"Ctrl+O","icons/Open",d2u("Отвори постоечка база"))
+        self.ActionArticleAdd = self.CreateAction("Vnesi Artikl...",self.TriggeredArticleAdd,"Ctrl+A","icons/Add",d2u("Внеси артикл"))
+        self.ActionArticleEdit = self.CreateAction("Promeni Artikl...",self.TriggeredArticleEdit,"Ctrl+E","icons/Edit",d2u("Промени артикл"))
+        self.ActionArticleDelete = self.CreateAction("Izbrisi Artikl",self.TriggeredArticleDelete,"Ctrl+D","icons/Delete",d2u("Избриши артикл"))
         
-        self.ActionDnevenIzevstaj = self.CreateAction("Dneven Izvestaj", self.DnevenIzevstajClicked,"F9","icons/Chart",d2u("Дневен извештај"))
-        self.ActionMakePaymant = self.CreateAction("Naplati", self.NaplatiClicked,"F5","icons/Check", d2u("Наплати"))
-        self.ActionExit = self.CreateAction("Exit",self.TriggeredExit,"Esc","icons/Exit",d2u("Излез"))
+        self.ActionDnevenIzevstaj = self.CreateAction("Dneven Izvestaj", self.DnevenIzevstajClicked,"F9","icons/Report",d2u("Дневен извештај"))
+        self.ActionMakePaymant = self.CreateAction("Naplati", self.NaplatiClicked,"F5","icons/Check", d2u("Наплати (F5)"))
+        self.ActionExit = self.CreateAction("Izlez",self.TriggeredExit,"Esc","icons/Exit",d2u("Излез"))
 
         self.UpdateActionStatus()
 
@@ -403,9 +274,9 @@ class MainWindow(QtGui.QMainWindow):
 
     def CreateToolbar(self):
         Toolbar = QtGui.QToolBar()
-        #Toolbar.addAction(self.ActionDatabaseNew)
-        #Toolbar.addAction(self.ActionDatabaseOpen)
-        #Toolbar.addSeparator()
+        Toolbar.addAction(self.ActionDatabaseNew)
+        Toolbar.addAction(self.ActionDatabaseOpen)
+        Toolbar.addSeparator()
         Toolbar.addAction(self.ActionArticleAdd)
         Toolbar.addAction(self.ActionArticleEdit)
         Toolbar.addAction(self.ActionArticleDelete)
@@ -472,6 +343,7 @@ class MainWindow(QtGui.QMainWindow):
             self.TableAdd()
 
     def TriggeredExit(self):
+        self.DatabaseClose()
         self.close()
         
 #------------------------------- /Bazi ----------------------------------------
@@ -621,7 +493,7 @@ class MainWindow(QtGui.QMainWindow):
     def DatabaseActiveTransactionDelete(self,count):
         self.Database.exec_("DELETE FROM Active WHERE count='%s'" % count)
 
- #---------------- Popolnuvanje na tabelite ---------
+ #---------------- Popolnuvanje na drva i tabelite ---------
 
     def TreePopulate(self):
         self.TreeArticleList.clear()
@@ -730,7 +602,7 @@ if __name__=="__main__":
     myApp = QtGui.QApplication(sys.argv)
     
     myProgram = MainWindow()
-    myProgram.showMaximized()
+    myProgram.showFullScreen()
     #"windows", "motif", "cde", "plastique" and "cleanlooks", platform: "windowsxp", "windowsvista" and "macintosh"
     myApp.setStyle(QtGui.QStyleFactory.create("cleanlooks")) 
     

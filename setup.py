@@ -7,11 +7,11 @@ data_files = [
             ('imageformats',['dll\qico4.dll']),
             ('icons',       ['icons\Add.ico',
                              'icons\Edit.ico',
-             		     'icons\Delete.ico',
+                             'icons\Delete.ico',
                              'icons\Restoran.ico',
-             		     'icons\Chart.ico',
-             		     'icons\Check.ico',
-             		     'icons\Exit.ico'])
+                             'icons\Chart.ico',
+                             'icons\Check.ico',
+                             'icons\Exit.ico'])
             ]
 
 setup(name = "Restoran",
