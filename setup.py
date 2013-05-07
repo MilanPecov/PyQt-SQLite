@@ -4,12 +4,17 @@ from distutils.core import setup
 data_files = [
             ('db',          ['db\Base.adb']),
             ('sqldrivers',  ['dll\qsqlite4.dll']),
-            ('imageformats',['dll\qico4.dll']),
+            ('imageformats',['dll\qico4.dll',
+                             'dll\qjpeg4.dll']),
             ('icons',       ['icons\Add.ico',
                              'icons\Edit.ico',
                              'icons\Delete.ico',
                              'icons\Restoran.ico',
-                             'icons\Chart.ico',
+                             'icons\drinks.jpg',
+                             'icons\New.ico',
+                             'icons\User.ico',
+                             'icons\Open.ico',
+                             'icons\Report.ico',
                              'icons\Check.ico',
                              'icons\Exit.ico'])
             ]
