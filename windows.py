@@ -1,17 +1,95 @@
 # coding=utf-8
 from PyQt4 import QtGui,QtCore,Qt
-from base import Article
+from base import Article,User
 
 def d2u(text):
     "konverzija vo UTF-8"
     return text.decode('utf-8')
 
+class UsersDialog(QtGui.QDialog):
+    def __init__(self,Parent,Query=None):
+        QtGui.QDialog.__init__(self,Parent)
+        self.setWindowTitle(d2u("Корисници"))
+        self.setWindowIcon(QtGui.QIcon("icons/User.ico"))
+
+        self.User=User()
+
+        mainLayout = QtGui.QVBoxLayout(self)
+
+        self.listUsers = QtGui.QListWidget()
+        self.listUsers.setSortingEnabled(True)
+        self.Query = Query
+        #self.selectedUser = self.listUsers.selectedItems()
+
+        self.textName = QtGui.QLineEdit(self)
+        self.textName.setPlaceholderText(d2u('Корисничко име'))
+        self.textName.setFixedWidth(200)
+
+        self.textPass = QtGui.QLineEdit(self)
+        self.textPass.setPlaceholderText(d2u('Лозинка'))
+        self.textPass.setEchoMode(QtGui.QLineEdit.Password)
+        self.textPass.setFixedWidth(200)
+
+        self.buttonSignIn = QtGui.QPushButton(d2u('Создади'), self)
+        self.buttonSignIn.setFixedWidth(200)
+        self.buttonSignIn.clicked.connect(self.SignInClicked)
+
+        self.buttonDelete = QtGui.QPushButton(d2u('Избриши'), self)
+        self.buttonDelete.setFixedWidth(200)
+        self.buttonDelete.clicked.connect(self.DeleteClicked)
+
+        signIn = QtGui.QVBoxLayout() 
+        self.groupBox1 = QtGui.QGroupBox(d2u('Создади нов корисник'))
+        self.groupBox2 = QtGui.QGroupBox(d2u('Избриши го селектираниот корисник'))
+        signIn.addWidget(self.textName)
+        signIn.addWidget(self.textPass)
+        signIn.addWidget(self.buttonSignIn)
+        signIn.addStretch()
+        self.groupBox1.setLayout(signIn)
+
+        delete = QtGui.QVBoxLayout() 
+        delete.addWidget(self.buttonDelete)
+        self.groupBox2.setLayout(delete)
+
+        right = QtGui.QVBoxLayout()
+        right.addWidget(self.groupBox1)
+        right.addWidget(self.groupBox2) 
+
+        users = QtGui.QHBoxLayout()
+        users.addWidget(self.listUsers)
+        users.addLayout(right)
+      
+        mainLayout.addLayout(users)
+        self.FillUsersList()
+        self.setLayout(mainLayout)
+
+        self.sign = 0
+        self.delete = 0
+
+    def SignInClicked(self):
+        self.sign = 1
+        self.User.Name = self.textName.text()
+        self.User.Pass = self.textPass.text()
+        self.accept()
+
+    def DeleteClicked(self):
+        self.delete = 1
+        self.User.Name = unicode(self.listUsers.currentItem().text())
+        self.accept()
+
+    def FillUsersList(self):
+        while self.Query.next():
+            self.listUsers.addItem(self.Query.value(1).toString())
+
+
 class Login(QtGui.QDialog):
-    def __init__(self,Parent):
+    def __init__(self,Parent,users):
         QtGui.QDialog.__init__(self,Parent)
 
         mainLayout = QtGui.QVBoxLayout(self)
         loginButtons = QtGui.QVBoxLayout()
+        self._want_to_close = False
+        self.users=users
 
         self.textName = QtGui.QLineEdit(self)
         self.textName.setPlaceholderText(d2u('Корисничко име'))
@@ -24,7 +102,7 @@ class Login(QtGui.QDialog):
 
         self.buttonLogin = QtGui.QPushButton(d2u('Најави се'), self)
         self.buttonLogin.setFixedWidth(200)
-        self.buttonLogin.clicked.connect(self.handleLogin)
+        self.buttonLogin.clicked.connect(self.LoginClicked)
 
         self.picture = QtGui.QLabel()
         self.picture.setPixmap(QtGui.QPixmap("icons/drinks.jpg" ))
@@ -43,9 +121,13 @@ class Login(QtGui.QDialog):
         mainLayout.addLayout(loginButtons)
         self.setLayout(mainLayout)
 
-    def handleLogin(self):
-        if (self.textName.text() == 'admin' and
-            self.textPass.text() == 'milan'):
+    def reject(self): #ESC key = OFF
+        pass
+
+    def LoginClicked(self):
+        name = self.textName.text()
+        password = self.textPass.text()
+        if [name,password] in self.users:
             self.accept()
         else:
             QtGui.QMessageBox.warning(
@@ -64,14 +146,14 @@ class CalendarDialog(QtGui.QDialog):
         vbox.addWidget(self.cal)
 
         self.buttonOK = QtGui.QPushButton(d2u("Изврши"))
-        self.connect(self.ButtonOK,QtCore.SIGNAL("clicked()"),self.OKClicked)
+        self.connect(self.buttonOK,QtCore.SIGNAL("clicked()"),self.OKClicked)
         self.buttonCancel = QtGui.QPushButton(d2u("Излез"))
-        self.connect(self.ButtonCancel,QtCore.SIGNAL("clicked()"),self.reject)
+        self.connect(self.buttonCancel,QtCore.SIGNAL("clicked()"),self.reject)
 
         OKCancelLayout = QtGui.QHBoxLayout()
         OKCancelLayout.addStretch()
-        OKCancelLayout.addWidget(self.ButtonOK)
-        OKCancelLayout.addWidget(self.ButtonCancel)
+        OKCancelLayout.addWidget(self.buttonOK)
+        OKCancelLayout.addWidget(self.buttonCancel)
 
         vbox.addLayout(OKCancelLayout)
         self.setLayout(vbox)        
@@ -89,13 +171,13 @@ class InactivityFilter(QtCore.QTimer):
     """
     def __init__(self, parent=None):
         super(InactivityFilter, self).__init__(parent)
-        self.setInterval(50000) #milliseconds
+        
+        self.setInterval(1) #milliseconds
         self.start()
 
     def eventFilter(self, object, event):
         if event.type() in (QtCore.QEvent.MouseMove, QtCore.QEvent.MouseButtonPress, QtCore.QEvent.HoverMove, QtCore.QEvent.KeyPress, QtCore.QEvent.KeyRelease, ):
-            self.emit(QtCore.SIGNAL("activity"))
-            self.start(5000)
+            self.start(10000)
         return QtCore.QObject.eventFilter(self, object, event)
 
 class AddEditArticle(QtGui.QDialog):

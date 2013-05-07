@@ -6,8 +6,8 @@
 import sys
 import threading
 from PyQt4 import QtGui, QtCore, Qt, QtSql
-from windows import Login, CalendarDialog, InactivityFilter, AddEditArticle
-from base import Article, Transaction
+from windows import Login, CalendarDialog, InactivityFilter, AddEditArticle, UsersDialog
+from base import Article, Transaction, User
 
 inactivity_timeout=1 #dali da ima log
 
@@ -34,17 +34,11 @@ class MainWindow(QtGui.QMainWindow):
         if (inactivity_timeout): 
             self.event_filter = InactivityFilter()
             QtCore.QCoreApplication.instance().installEventFilter(self.event_filter)
-            self.connect(self.event_filter, QtCore.SIGNAL("timeout()"), self.TimeOut)
+            self.connect(self.event_filter, QtCore.SIGNAL("timeout()"), self.TriggeredTimeOut)
         else:
             self.event_filter = None
         
-        self.TimeOut()    
-
-    def TimeOut(self):
-        Log = Login(self)
-        Log.showFullScreen()
-        if Log.exec_():
-            self.disconnect(self.event_filter, QtCore.SIGNAL("activity"), self.TimeOut)
+        #self.TriggeredTimeOut() #da se prikaze log-screen na prvoto vklucuvanje
 
     def CreateCentralWidget(self):
         LayoutCentral = QtGui.QGridLayout()
@@ -108,9 +102,9 @@ class MainWindow(QtGui.QMainWindow):
 
         #BUTTONS naracaj, komentar + layout
         self.ButtonNaracaj = QtGui.QPushButton(d2u("Нарачај"))
-        self.connect(self.ButtonNaracaj,QtCore.SIGNAL("clicked()"),self.NaracajClicked)
+        self.connect(self.ButtonNaracaj,QtCore.SIGNAL("clicked()"),self.OrderClicked)
         self.ButtonIzbrisi = QtGui.QPushButton(d2u("Избриши"))
-        self.connect(self.ButtonIzbrisi,QtCore.SIGNAL("clicked()"),self.IzbrisiClicked)
+        self.connect(self.ButtonIzbrisi,QtCore.SIGNAL("clicked()"),self.ClearClicked)
         self.TextComment  = QtGui.QLineEdit()
         self.TextComment.setFixedWidth(30)
 
@@ -130,32 +124,13 @@ class MainWindow(QtGui.QMainWindow):
         LayoutCentral.addWidget(self.LabelError,3,0,1,1)
         LayoutCentral.addLayout(MakeTransaction,3,1,1,2)
 
-        
         CentralWidget = QtGui.QWidget()
         CentralWidget.setLayout(LayoutCentral)
         self.setCentralWidget(CentralWidget)
 
-    def NaplatiClicked(self):
+    def OrderClicked(self):
         """
-        ako ima selektirano masa, ja brise od aktivni transakcii i azurira prikaz
-        *treba da se voveded funkcija za pecatenje
-        """
-        if(self.ListaNaracki.selectedItems()):
-            count = self.ListaNaracki.selectedItems()[0].text(1)
-            self.DatabaseActiveTransactionDelete(count)
-            self.TreeActiveTransactionPopulate()
-            self.TableNarackaClear()
-            self.LabelError.hide()
-        else:
-            self.LabelError.setText(d2u("ГРЕШКА: НЕМАТЕ СЕЛЕКТИРАНО МАСА"))
-            self.LabelError.show()
-
-    def IzbrisiClicked(self):
-        self.TableClear()
-
-    def NaracajClicked(self):
-        """
-        Ja zapisuva vnesenata naracka vo tabela za transakcii i aktivni transakcii
+        Ja zapisuva vnesenata naracka vo baza(tabela) za transakcii i aktivni transakcii
         Avtomatski generira broj na smetka 
         Azurira prikaz na aktivni transakcii
         """
@@ -184,8 +159,7 @@ class MainWindow(QtGui.QMainWindow):
 
                     #zapisuvanje vo dvete tabeli
                     self.DatabaseActiveTransactionAdd(self.myTransaction)
-                    ID = self.DatabaseTransactionAdd(self.myTransaction)
-                    self.myTransaction.ID = ID
+                    self.DatabaseTransactionAdd(self.myTransaction)
 
                 self.TableClear()
                 #azurira drvo na aktivni naracki
@@ -205,36 +179,8 @@ class MainWindow(QtGui.QMainWindow):
             self.LabelError.setText(d2u("ГРЕШКА: НЕМАТЕ ВНЕСЕНО БРОЈ НА МАСА"))
             self.LabelError.show()
 
-    def DnevenIzevstajClicked(self):
-        """
-        Prikazuva dneven izvestaj za selektiraniot den od kalendarot
-        Treba da se implementira nacinot na vizuelizacija
-        """
-        Calendar = CalendarDialog(self)
-        if Calendar.exec_():
-            date = Calendar.selectedDate.toPyDate()
-            Query = self.Database.exec_("SELECT * FROM Trans WHERE date_created='%s'" % str(date))
-            count_dict={}   #key: broj_na_smetka ; value: ceh
-            article_dict={} #key: artikl; value: ceh
-            while Query.next():
-                name  = str(Query.value(2).toString().toUtf8())
-                price = Query.value(3).toInt()[0]
-                quantity = Query.value(5).toInt()[0]
-                count = str(Query.value(6).toString())
-                #print name,price,quantity,count
-                if count not in count_dict:
-                    count_dict[count] = quantity * price
-                elif count in count_dict:
-                    count_dict[count] = count_dict.get(count) + quantity * price
-                if name not in article_dict:
-                    article_dict[name] = quantity * price
-                elif name in article_dict:
-                    article_dict[name] = article_dict.get(name) + quantity * price
-           
-            print count_dict
-            print article_dict
-            print "Vkupno po smetka: %s " % sum(count_dict.values())
-            print "Vkupno po artikl: %s " % sum(article_dict.values())
+    def ClearClicked(self):
+        self.TableClear()
 
 #------------------------------- /Akcii ----------------------------------------
 
@@ -260,8 +206,9 @@ class MainWindow(QtGui.QMainWindow):
         self.ActionArticleEdit = self.CreateAction("Promeni Artikl...",self.TriggeredArticleEdit,"Ctrl+E","icons/Edit",d2u("Промени артикл"))
         self.ActionArticleDelete = self.CreateAction("Izbrisi Artikl",self.TriggeredArticleDelete,"Ctrl+D","icons/Delete",d2u("Избриши артикл"))
         
-        self.ActionDnevenIzevstaj = self.CreateAction("Dneven Izvestaj", self.DnevenIzevstajClicked,"F9","icons/Report",d2u("Дневен извештај"))
-        self.ActionMakePaymant = self.CreateAction("Naplati", self.NaplatiClicked,"F5","icons/Check", d2u("Наплати (F5)"))
+        self.ActionUsers = self.CreateAction("Korisnici", self.TriggeredUsers,"Ctrl+U", "icons/User",d2u("Корисници"))
+        self.ActionDailyReport = self.CreateAction("Dneven Izvestaj", self.TriggeredDailyReport,"F9","icons/Report",d2u("Дневен извештај (F9)"))
+        self.ActionMakePaymant = self.CreateAction("Naplati", self.TriggeredMakePaymant,"F5","icons/Check", d2u("Наплати (F5)"))
         self.ActionExit = self.CreateAction("Izlez",self.TriggeredExit,"Esc","icons/Exit",d2u("Излез"))
 
         self.UpdateActionStatus()
@@ -281,12 +228,13 @@ class MainWindow(QtGui.QMainWindow):
         Toolbar.addAction(self.ActionArticleEdit)
         Toolbar.addAction(self.ActionArticleDelete)
         Toolbar.addSeparator()
+        Toolbar.addAction(self.ActionUsers)
         Toolbar.addAction(self.ActionMakePaymant)
-        Toolbar.addAction(self.ActionDnevenIzevstaj)
+        Toolbar.addAction(self.ActionDailyReport)
         Toolbar.addSeparator()
         Toolbar.addAction(self.ActionExit)
 
-        self.addToolBar(Toolbar)
+        self.addToolBar(Qt.Qt.BottomToolBarArea,Toolbar)
 
 #------------------------------- /Trigeri ----------------------------------------
 
@@ -345,7 +293,80 @@ class MainWindow(QtGui.QMainWindow):
     def TriggeredExit(self):
         self.DatabaseClose()
         self.close()
-        
+
+    def TriggeredTimeOut(self):
+        self.disconnect(self.event_filter, QtCore.SIGNAL("timeout()"), self.TriggeredTimeOut)  
+        users = self.DatabaseGetUsers()
+        Log = Login(self,users)
+        Log.showFullScreen()
+        if Log.exec_():
+            self.connect(self.event_filter, QtCore.SIGNAL("timeout()"), self.TriggeredTimeOut)
+              
+
+    def TriggeredMakePaymant(self):
+        """
+        ako ima selektirano masa, ja brise od aktivni transakcii i azurira prikaz
+        *treba da se voveded funkcija za pecatenje
+        """
+        if(self.ListaNaracki.selectedItems()):
+            count = self.ListaNaracki.selectedItems()[0].text(1)
+            self.DatabaseActiveTransactionDelete(count)
+            self.TreeActiveTransactionPopulate()
+            self.TableNarackaClear()
+            self.LabelError.hide()
+        else:
+            self.LabelError.setText(d2u("ГРЕШКА: НЕМАТЕ СЕЛЕКТИРАНО МАСА"))
+            self.LabelError.show()
+
+    def TriggeredDailyReport(self):
+        """
+        Prikazuva dneven izvestaj za selektiraniot den od kalendarot
+        Treba da se implementira nacinot na vizuelizacija
+        """
+        Calendar = CalendarDialog(self)
+        if Calendar.exec_():
+            date = Calendar.selectedDate.toPyDate()
+            Query = self.Database.exec_("SELECT * FROM Trans WHERE date_created='%s'" % str(date))
+            count_dict={}   #key: broj_na_smetka ; value: ceh
+            article_dict={} #key: artikl; value: ceh
+            while Query.next():
+                name  = str(Query.value(2).toString().toUtf8())
+                price = Query.value(3).toInt()[0]
+                quantity = Query.value(5).toInt()[0]
+                count = str(Query.value(6).toString())
+                #print name,price,quantity,count
+                if count not in count_dict:
+                    count_dict[count] = quantity * price
+                elif count in count_dict:
+                    count_dict[count] = count_dict.get(count) + quantity * price
+                if name not in article_dict:
+                    article_dict[name] = quantity * price
+                elif name in article_dict:
+                    article_dict[name] = article_dict.get(name) + quantity * price
+           
+            print count_dict
+            print article_dict
+            print "Vkupno po smetka: %s " % sum(count_dict.values())
+            print "Vkupno po artikl: %s " % sum(article_dict.values())
+
+ 
+    def TriggeredUsers(self):
+        """
+        Dodavanje na novi korisnici
+        ili brisenje na stari
+        """
+        Query = self.Database.exec_("SELECT * FROM Users")
+        Users = UsersDialog(self,Query)
+        if Users.exec_():
+            if Users.delete:
+                self.DatabaseUserDelete(Users.User.Name)
+            if Users.sign:
+                if self.DatabaseUserExist(Users.User.Name):
+                    QtGui.QMessageBox.warning(
+                    self, d2u('Грешка'), d2u('Корисникот веќе постои'))
+                else:
+                    self.DatabaseUserAdd(Users.User)
+
 #------------------------------- /Bazi ----------------------------------------
 
     def DatabaseDefaultOpen(self):
@@ -413,6 +434,11 @@ class MainWindow(QtGui.QMainWindow):
                                 date_created DATE,
                                 time_created TEXT,
                                 comment TEXT)""")
+            self.Database.exec_("""CREATE TABLE Users (
+                                id INTEGER PRIMARY KEY,
+                                name TEXT,
+                                pass TEXT,
+                                date_created DATE)""")
             self.DatabaseClose()
             self.DatabaseConnect()
         else:
@@ -427,7 +453,6 @@ class MainWindow(QtGui.QMainWindow):
         InsertQuery.bindValue(":price",QtCore.QVariant(aArticle.Price))
         InsertQuery.bindValue(":tax",QtCore.QVariant(aArticle.Tax))
         InsertQuery.exec_()
-        print InsertQuery.lastError().text()
         Query = self.Database.exec_("SELECT * FROM Article")
         Query.last()
         return Query.value(0).toString()
@@ -469,10 +494,6 @@ class MainWindow(QtGui.QMainWindow):
         InsertQuery.bindValue(":date_created",QtCore.QVariant(aTransaction.DateCreated))
         InsertQuery.bindValue(":time_created",QtCore.QVariant(aTransaction.TimeCreated))
         InsertQuery.exec_()
-        print InsertQuery.lastError().text()
-        Query = self.Database.exec_("SELECT * FROM Trans")
-        Query.last()
-        return Query.value(0).toString()
 
     def DatabaseActiveTransactionAdd(self,aTransaction):
         InsertQuery = QtSql.QSqlQuery()
@@ -488,12 +509,36 @@ class MainWindow(QtGui.QMainWindow):
         InsertQuery.bindValue(":time_created",QtCore.QVariant(aTransaction.TimeCreated))
         InsertQuery.bindValue(":comment",QtCore.QVariant(aTransaction.Comment))
         InsertQuery.exec_()
-        print InsertQuery.lastError().text()
+        #print InsertQuery.lastError().text()
       
     def DatabaseActiveTransactionDelete(self,count):
         self.Database.exec_("DELETE FROM Active WHERE count='%s'" % count)
 
- #---------------- Popolnuvanje na drva i tabelite ---------
+    def DatabaseUserAdd(self,User):
+        InsertQuery = QtSql.QSqlQuery()
+        InsertQuery.prepare("INSERT INTO Users (name, pass) "
+                            "VALUES (:name, :password)")
+        InsertQuery.bindValue(":name",QtCore.QVariant(User.Name))
+        InsertQuery.bindValue(":password",QtCore.QVariant(User.Pass))
+        InsertQuery.exec_()
+
+    def DatabaseGetUsers(self):
+        Query = self.Database.exec_("SELECT * FROM Users")
+        usr=[]
+        while Query.next():
+            name = Query.value(1).toString()
+            password = Query.value(2).toString()
+            usr.append([name,password]) 
+        return usr
+
+    def DatabaseUserExist(self,name):
+        return self.Database.exec_("SELECT * FROM Users WHERE name='%s'" % name).first()
+        
+    def DatabaseUserDelete(self,name):
+        self.Database.exec_("DELETE FROM Users WHERE name='%s'" % name)
+
+
+#---------------- Popolnuvanje na drva i tabeli ---------
 
     def TreePopulate(self):
         self.TreeArticleList.clear()
@@ -598,6 +643,7 @@ class MainWindow(QtGui.QMainWindow):
         self.TableNarackaPrikaz.setRowCount(0)
         self.TableNarackaPrikaz.setHorizontalHeaderLabels([d2u("Артикл"),d2u("Цена"),d2u("Количина"),d2u("Вкупно")])
 
+
 if __name__=="__main__":
     myApp = QtGui.QApplication(sys.argv)
     
@@ -606,4 +652,11 @@ if __name__=="__main__":
     #"windows", "motif", "cde", "plastique" and "cleanlooks", platform: "windowsxp", "windowsvista" and "macintosh"
     myApp.setStyle(QtGui.QStyleFactory.create("cleanlooks")) 
     
+    #new stylesheet
+    #import os
+    #styleFile=os.path.join(os.path.split(__file__)[0],"darkorange.stylesheet")
+    #with open(styleFile,"r") as fh:
+    #    myApp.setStyleSheet(fh.read())
+    #fh.close()
     myApp.exec_()
+
