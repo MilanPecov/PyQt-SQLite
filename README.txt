@@ -1,0 +1,1 @@
+dependencies: PyQt, py2exe

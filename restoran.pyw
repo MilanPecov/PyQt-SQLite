@@ -15,15 +15,15 @@ def d2u(text):
     "konverzija vo UTF-8"
     return text.decode('utf-8')
 
-
 class MainWindow(QtGui.QMainWindow):
     def __init__(self,Parent=None):
         QtGui.QMainWindow.__init__(self,Parent)
         self.setWindowTitle(d2u("Ресторан"))
-        self.setWindowIcon(QtGui.QIcon("icons/Restoran.ico"))
+        self.setWindowIcon(QtGui.QIcon("static/icons/Restoran.ico"))
         
-        self.DatabaseName = "db/Base.adb"
+        self.DatabaseName = "Base.adb"
         self.Database = QtSql.QSqlDatabase.addDatabase("QSQLITE");
+        self.User = '' #koj korisnik e najaven
 
         self.CreateCentralWidget()
         self.CreateActions()
@@ -41,12 +41,14 @@ class MainWindow(QtGui.QMainWindow):
         #self.TriggeredTimeOut() #da se prikaze log-screen na prvoto vklucuvanje
 
     def CreateCentralWidget(self):
-        LayoutCentral = QtGui.QGridLayout()
+        LayoutCentral = QtGui.QVBoxLayout()
+        font = QtGui.QFont('verdana', 9)
 
         #DRVO na aktivni naracki
         self.ListaNaracki = QtGui.QTreeWidget()
         self.ListaNaracki.setColumnCount(4)
-        self.ListaNaracki.setHeaderLabels([d2u('Активни Нарачки'),d2u('бр.Сметка'),d2u('Време'),d2u('Датум')])
+        self.ListaNaracki.setFont(font)
+        self.ListaNaracki.setHeaderLabels([d2u('Нарачкa'),d2u('бр.Сметка'),d2u('Време'),d2u('Датум')])
         self.ListaNaracki.setSortingEnabled(True)
         #self.ListaNaracki.hideColumn(1)
         self.ListaNaracki.setColumnWidth(2, 80)
@@ -58,6 +60,7 @@ class MainWindow(QtGui.QMainWindow):
         self.TreeArticleList = QtGui.QTreeWidget()
         self.TreeArticleList.setHeaderLabel(d2u("Мени"))
         self.TreeArticleList.setSortingEnabled(True)
+        self.TreeArticleList.setFont(font)
         self.TreeArticleList.setColumnCount(6)
         self.TreeArticleList.sortByColumn(0,Qt.Qt.AscendingOrder)
         self.TreeArticleList.hideColumn(1) #ID
@@ -70,37 +73,50 @@ class MainWindow(QtGui.QMainWindow):
         #TABELA za prikaz na aktivna narackata
         self.TableNarackaPrikaz = QtGui.QTableWidget()
         self.TableNarackaPrikaz.setColumnCount(4)
+        self.TableNarackaPrikaz.horizontalHeader().setFont(font)
         self.TableNarackaPrikaz.setHorizontalHeaderLabels([d2u("Артикл"),d2u("Цена"),d2u("Количина"),d2u("Вкупно")])
         self.TableNarackaPrikaz.setRowCount(0)
         self.TableNarackaPrikaz.verticalHeader().setVisible(False)
-        self.TableNarackaPrikaz.setColumnWidth(1,60)
-        self.TableNarackaPrikaz.setColumnWidth(2,60)
-        self.TableNarackaPrikaz.setColumnWidth(3,60)
+        self.TableNarackaPrikaz.setColumnWidth(1,80)
+        self.TableNarackaPrikaz.setColumnWidth(2,80)
+        self.TableNarackaPrikaz.setColumnWidth(3,80)
         self.TableNarackaPrikaz.horizontalHeader().setResizeMode(0, QtGui.QHeaderView.Stretch)
         
         #TABELA za kreiranje nova naracka
         self.TableNaracka = QtGui.QTableWidget()
         self.TableNaracka.setColumnCount(4)
+        self.TableNaracka.horizontalHeader().setFont(font)
         self.TableNaracka.setHorizontalHeaderLabels([d2u("Артикл"),d2u("Цена"),d2u("Данок"),d2u("Количина")])
         self.TableNaracka.setRowCount(0)
         self.TableNaracka.verticalHeader().setVisible(False)
-        self.TableNaracka.setColumnWidth(3,60)
+        self.TableNaracka.setColumnWidth(3,80)
         self.TableNaracka.setColumnHidden(1, True)
         self.TableNaracka.setColumnHidden(2, True)
         self.TableNaracka.horizontalHeader().setResizeMode(0, QtGui.QHeaderView.Stretch)
 
-        #displej za vkupno suma
+        #DISPLEJ za vkupen iznos na smetka
         self.LCDNumberSum = QtGui.QLCDNumber()
         self.LCDNumberSum.setSegmentStyle(2)
-        self.LCDNumberSum.setFixedHeight(50)
+        self.LCDNumberSum.setFixedHeight(35)
+        #self.LCDNumberSum.setFixedWidth(130)
+        self.LCDNumberSum.setObjectName('LCD')
 
-        #labela za prikazuvanje na greski
+        #Labela za ime na firma
+        self.LabelFirm = QtGui.QLabel(d2u("Име на фирма"))
+        self.LabelFirm.setAlignment(QtCore.Qt.AlignRight)
+        self.LabelFirm.setObjectName('Firma')
+
+        #Labela za prikaz na aktiven korisnik
+        self.LabelUser = QtGui.QLabel()
+        self.LabelUser.setAlignment(QtCore.Qt.AlignRight)
+        self.LabelUser.setObjectName('User')
+
+        #Labela za prikazuvanje na greski
         self.LabelError = QtGui.QLabel("")
         self.LabelError.hide()
         self.LabelError.setObjectName('Error')
-        self.LabelError.setStyleSheet('QLabel#Error {color: red; font-weight: bold; background: white; padding-left: 5px}')
-
-        #BUTTONS naracaj, komentar + layout
+       
+        #BUTTONS naracaj, komentar
         self.ButtonNaracaj = QtGui.QPushButton(d2u("Нарачај"))
         self.connect(self.ButtonNaracaj,QtCore.SIGNAL("clicked()"),self.OrderClicked)
         self.ButtonIzbrisi = QtGui.QPushButton(d2u("Избриши"))
@@ -108,36 +124,66 @@ class MainWindow(QtGui.QMainWindow):
         self.TextComment  = QtGui.QLineEdit()
         self.TextComment.setFixedWidth(30)
 
-        MakeTransaction = QtGui.QHBoxLayout()
-        MakeTransaction.addStretch()
-        MakeTransaction.addWidget(QtGui.QLabel(d2u("Маса број: ")))
-        MakeTransaction.addWidget(self.TextComment)
-        MakeTransaction.addWidget(self.ButtonNaracaj)
-        MakeTransaction.addWidget(self.ButtonIzbrisi)
+        #layout
+        HeaderLeft = QtGui.QVBoxLayout()
+        HeaderLeft.addWidget(self.LabelFirm)
+        HeaderLeft.addWidget(self.LabelUser)
 
-        #GRID
-        LayoutCentral.addWidget(self.LCDNumberSum,0,2,1,1)
-        LayoutCentral.addWidget(self.ListaNaracki,1,0,1,1)
-        LayoutCentral.addWidget(self.TableNarackaPrikaz,1,1,1,2)
-        LayoutCentral.addWidget(self.TreeArticleList,2,0,1,1)
-        LayoutCentral.addWidget(self.TableNaracka,2,1,1,2)
-        LayoutCentral.addWidget(self.LabelError,3,0,1,1)
-        LayoutCentral.addLayout(MakeTransaction,3,1,1,2)
+        Header = QtGui.QHBoxLayout()
+        Header.addLayout(HeaderLeft)
+
+        MakeTransaction = QtGui.QHBoxLayout()
+        MakeTransactionRight = QtGui.QHBoxLayout()
+        MakeTransactionRight.addStretch()
+        MakeTransactionRight.addWidget(QtGui.QLabel(d2u("Маса број: ")))
+        MakeTransactionRight.addWidget(self.TextComment)
+        MakeTransactionRight.addWidget(self.ButtonNaracaj)
+        MakeTransactionRight.addWidget(self.ButtonIzbrisi)
+        MakeTransaction.addWidget(self.LabelError)
+        MakeTransaction.addLayout(MakeTransactionRight)
+
+        #groups
+        self.GroupBoxActive = QtGui.QGroupBox(d2u('АКТИВНИ НАРАЧКИ'))
+        Active = QtGui.QHBoxLayout()
+        ActiveRight = QtGui.QVBoxLayout()
+        ActiveRight.addWidget(self.LCDNumberSum)
+        ActiveRight.addWidget(self.TableNarackaPrikaz)
+        Active.addWidget(self.ListaNaracki)
+        Active.addLayout(ActiveRight)
+        self.GroupBoxActive.setLayout(Active)
+        self.GroupBoxActive.setObjectName('Active')
+        
+        self.GroupBoxNew = QtGui.QGroupBox(d2u('НОВА НАРАЧКА'))
+        New = QtGui.QVBoxLayout()
+        NewTables = QtGui.QHBoxLayout()
+        NewTables.addWidget(self.TreeArticleList)
+        NewTables.addWidget(self.TableNaracka)
+        New.addLayout(NewTables)
+        New.addLayout(MakeTransaction)
+        self.GroupBoxNew.setLayout(New)
+        self.GroupBoxNew.setObjectName('New')
+     
+        LayoutCentral.addLayout(Header)
+        LayoutCentral.addWidget(self.GroupBoxActive)
+        LayoutCentral.addWidget(self.GroupBoxNew)
 
         CentralWidget = QtGui.QWidget()
         CentralWidget.setLayout(LayoutCentral)
+        CentralWidget.setObjectName('Central')
         self.setCentralWidget(CentralWidget)
 
     def OrderClicked(self):
         """
-        Ja zapisuva vnesenata naracka vo baza(tabela) za transakcii i aktivni transakcii
-        Avtomatski generira broj na smetka 
-        Azurira prikaz na aktivni transakcii
+        * Ja zapisuva vnesenata naracka vo bazanite tabeli Active i Trans
+        
+        * Avtomatski generira broj na smetka 
+        
+        * Azurira prikaz na aktivni transakcii
         """
         if self.TextComment.text(): #ako e vnesen brojot na masa
             Query = self.Database.exec_("SELECT * FROM Trans")
-            if Query.last(): #posledna naracka
-                self.CountNumber = Query.value(6).toInt()[0] + 1 
+            if Query.last(): # posledna naracka
+                self.CountNumber = Query.value(6).toInt()[0] + 1 # broj na nova smetka
             else: #prva naracka
                 self.CountNumber = 1
 
@@ -156,6 +202,7 @@ class MainWindow(QtGui.QMainWindow):
                     self.myTransaction.Quantity = unicode(self.TableNaracka.item(i,3).text())
                     self.myTransaction.Count = unicode(QtCore.QString(str(self.CountNumber)))
                     self.myTransaction.Comment = unicode(self.TextComment.text())
+                    self.myTransaction.Waiter = unicode(self.User)
 
                     #zapisuvanje vo dvete tabeli
                     self.DatabaseActiveTransactionAdd(self.myTransaction)
@@ -200,24 +247,27 @@ class MainWindow(QtGui.QMainWindow):
         return action
     
     def CreateActions(self):
-        self.ActionDatabaseNew = self.CreateAction("Nova Baza...",self.TriggeredDatabaseNew,"Ctrl+T","icons/New",d2u("Направи нова база (артикли,трансакции)"))
-        self.ActionDatabaseOpen = self.CreateAction("Otvori Basa...",self.TriggeredDatabaseOpen,"Ctrl+O","icons/Open",d2u("Отвори постоечка база"))
-        self.ActionArticleAdd = self.CreateAction("Vnesi Artikl...",self.TriggeredArticleAdd,"Ctrl+A","icons/Add",d2u("Внеси артикл"))
-        self.ActionArticleEdit = self.CreateAction("Promeni Artikl...",self.TriggeredArticleEdit,"Ctrl+E","icons/Edit",d2u("Промени артикл"))
-        self.ActionArticleDelete = self.CreateAction("Izbrisi Artikl",self.TriggeredArticleDelete,"Ctrl+D","icons/Delete",d2u("Избриши артикл"))
+        self.ActionDatabaseNew = self.CreateAction("Nova Baza...",self.TriggeredDatabaseNew,"Ctrl+T","static/icons/New",d2u("Направи нова база"))
+        self.ActionDatabaseOpen = self.CreateAction("Otvori Basa...",self.TriggeredDatabaseOpen,"Ctrl+O","static/icons/Open",d2u("Отвори постоечка база"))
+        self.ActionArticleAdd = self.CreateAction("Vnesi Artikl...",self.TriggeredArticleAdd,"Ctrl+A","static/icons/Add",d2u("Внеси артикл"))
+        self.ActionArticleEdit = self.CreateAction("Promeni Artikl...",self.TriggeredArticleEdit,"Ctrl+E","static/icons/Edit",d2u("Промени артикл"))
+        self.ActionArticleDelete = self.CreateAction("Izbrisi Artikl",self.TriggeredArticleDelete,"Ctrl+D","static/icons/Delete",d2u("Избриши артикл"))
         
-        self.ActionUsers = self.CreateAction("Korisnici", self.TriggeredUsers,"Ctrl+U", "icons/User",d2u("Корисници"))
-        self.ActionDailyReport = self.CreateAction("Dneven Izvestaj", self.TriggeredDailyReport,"F9","icons/Report",d2u("Дневен извештај (F9)"))
-        self.ActionMakePaymant = self.CreateAction("Naplati", self.TriggeredMakePaymant,"F5","icons/Check", d2u("Наплати (F5)"))
-        self.ActionExit = self.CreateAction("Izlez",self.TriggeredExit,"Esc","icons/Exit",d2u("Излез"))
+        self.ActionUsers = self.CreateAction("Korisnici", self.TriggeredUsers,"Ctrl+U", "static/icons/User",d2u("Корисници"))
+        self.ActionDailyReport = self.CreateAction("Dneven Izvestaj", self.TriggeredDailyReport,"F9","static/icons/Report",d2u("Дневен извештај (F9)"))
+        self.ActionMakePaymant = self.CreateAction("Naplati", self.TriggeredMakePaymant,"F5","static/icons/Check", d2u("Наплати (F5)"))
+        self.ActionExit = self.CreateAction("Izlez",self.TriggeredExit,"Esc","static/icons/Exit",d2u("Излез (Esc)"))
 
         self.UpdateActionStatus()
 
     #koga da bidat ovozmozeni klikovite
     def UpdateActionStatus(self):
-        self.ActionArticleAdd.setEnabled(self.Database.isOpen()) 
-        self.ActionArticleEdit.setEnabled(self.Database.isOpen())
-        self.ActionArticleDelete.setEnabled(self.Database.isOpen())
+        self.ActionDatabaseNew.setEnabled(self.User == 'admin')
+        self.ActionDatabaseOpen.setEnabled(self.User == 'admin')
+        self.ActionArticleAdd.setEnabled(self.Database.isOpen() and self.User == 'admin') 
+        self.ActionArticleEdit.setEnabled(self.Database.isOpen() and self.User == 'admin')
+        self.ActionArticleDelete.setEnabled(self.Database.isOpen() and self.User == 'admin')
+        self.ActionUsers.setEnabled(self.User == 'admin')
 
     def CreateToolbar(self):
         Toolbar = QtGui.QToolBar()
@@ -234,7 +284,7 @@ class MainWindow(QtGui.QMainWindow):
         Toolbar.addSeparator()
         Toolbar.addAction(self.ActionExit)
 
-        self.addToolBar(Qt.Qt.BottomToolBarArea,Toolbar)
+        self.addToolBar(Toolbar)
 
 #------------------------------- /Trigeri ----------------------------------------
 
@@ -267,10 +317,10 @@ class MainWindow(QtGui.QMainWindow):
                 self.TreeArticleEdit(aArticle)
     
     def TriggeredArticleDelete(self):
-        DeleteConfirmBox = QtGui.QMessageBox()
+        DeleteConfirmBox = QtGui.QMessageBox(self)
         DeleteConfirmBox.setIcon(QtGui.QMessageBox.Warning)
         DeleteConfirmBox.setWindowTitle(d2u("Избриши артикл"))
-        DeleteConfirmBox.setWindowIcon(QtGui.QIcon("icons/Delete.ico"))
+        DeleteConfirmBox.setWindowIcon(QtGui.QIcon("static/icons/Delete.ico"))
         DeleteConfirmBox.setText(d2u("Дали сакате да го избришете селектираниот артикл?"))
         DeleteConfirmBox.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel)
         #print [self.TreeArticleList.selectedItems()[0].text(i) for i in range(1,6)]
@@ -281,13 +331,15 @@ class MainWindow(QtGui.QMainWindow):
             self.TreeArticleDelete(Article([self.TreeArticleList.selectedItems()[0].text(i) for i in range(1,6)]))
 
     def TriggeredTreeSelection(self):
-        self.UpdateActionStatus()
         if self.ListaNaracki.selectedItems():
             self.InfoUpdate()        
 
     def TriggeredTableAdd(self):
+        """
+        * Pri dvoen klik na artikl od drvoto go dodava vo tabela za naracka
+        """
         self.UpdateActionStatus()
-        if int(self.TreeArticleList.selectedItems()[0].text(2)): #site so ne nulti parent
+        if int(self.TreeArticleList.selectedItems()[0].text(2)): #onevozmozi root
             self.TableAdd()
 
     def TriggeredExit(self):
@@ -295,18 +347,29 @@ class MainWindow(QtGui.QMainWindow):
         self.close()
 
     def TriggeredTimeOut(self):
+        """
+        * Ako korisnikot nema aktivnost vo predefiniranoto vreme
+          se pojavuva prozorecot za najavuvanje.
+        
+        * Najaveniot korisnik se zacuvuva vo promenlivata self.User
+        """
         self.disconnect(self.event_filter, QtCore.SIGNAL("timeout()"), self.TriggeredTimeOut)  
         users = self.DatabaseGetUsers()
         Log = Login(self,users)
         Log.showFullScreen()
         if Log.exec_():
+            self.User = Log.Name
+            self.LabelUser.setText(d2u('Активен корисник: %s') % self.User)
             self.connect(self.event_filter, QtCore.SIGNAL("timeout()"), self.TriggeredTimeOut)
-              
+            self.UpdateActionStatus()
 
     def TriggeredMakePaymant(self):
         """
-        ako ima selektirano masa, ja brise od aktivni transakcii i azurira prikaz
-        *treba da se voveded funkcija za pecatenje
+        * Brise selektiranata masa od aktivni transakcii
+
+        * Azurira tabelata
+
+        * TODO: funkcija za pecatenje preku fiskalna kasa
         """
         if(self.ListaNaracki.selectedItems()):
             count = self.ListaNaracki.selectedItems()[0].text(1)
@@ -320,15 +383,16 @@ class MainWindow(QtGui.QMainWindow):
 
     def TriggeredDailyReport(self):
         """
-        Prikazuva dneven izvestaj za selektiraniot den od kalendarot
-        Treba da se implementira nacinot na vizuelizacija
+        * Prikazuva dneven izvestaj za selektiraniot den od kalendarot
+        
+        * TODO: nacinot na vizuelizacija i zacuvuvanje vo PDF file
         """
         Calendar = CalendarDialog(self)
         if Calendar.exec_():
             date = Calendar.selectedDate.toPyDate()
             Query = self.Database.exec_("SELECT * FROM Trans WHERE date_created='%s'" % str(date))
-            count_dict={}   #key: broj_na_smetka ; value: ceh
-            article_dict={} #key: artikl; value: ceh
+            count_dict={}   #key: broj_na_smetka ; value: iznos
+            article_dict={} #key: artikl; value: iznos
             while Query.next():
                 name  = str(Query.value(2).toString().toUtf8())
                 price = Query.value(3).toInt()[0]
@@ -352,8 +416,7 @@ class MainWindow(QtGui.QMainWindow):
  
     def TriggeredUsers(self):
         """
-        Dodavanje na novi korisnici
-        ili brisenje na stari
+        * Dodava ili brise korisnik od baznata tabela Users
         """
         Query = self.Database.exec_("SELECT * FROM Users")
         Users = UsersDialog(self,Query)
@@ -370,7 +433,7 @@ class MainWindow(QtGui.QMainWindow):
 #------------------------------- /Bazi ----------------------------------------
 
     def DatabaseDefaultOpen(self):
-        if self.DatabaseName == 'db/Base.adb':
+        if self.DatabaseName == 'Base.adb':
             self.DatabaseConnect()
 
     def DatabaseNew(self):
@@ -421,6 +484,7 @@ class MainWindow(QtGui.QMainWindow):
                                 tax INTEGER,
                                 quantity INTEGER,
                                 count INTEGER,
+                                waiter TEXT,
                                 date_created DATE,
                                 time_created TEXT)""")
             self.Database.exec_("""CREATE TABLE Active (
@@ -432,6 +496,7 @@ class MainWindow(QtGui.QMainWindow):
                                 quantity INTEGER,
                                 count INTEGER,
                                 date_created DATE,
+                                waiter TEXT,
                                 time_created TEXT,
                                 comment TEXT)""")
             self.Database.exec_("""CREATE TABLE Users (
@@ -483,8 +548,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def DatabaseTransactionAdd(self,aTransaction):
         InsertQuery = QtSql.QSqlQuery()
-        InsertQuery.prepare("INSERT INTO Trans (type, name, price, tax, quantity, count, date_created, time_created) " 
-                            "VALUES (:type, :name, :price, :tax, :quantity, :count, :date_created, :time_created)")
+        InsertQuery.prepare("INSERT INTO Trans (type, name, price, tax, quantity, count, date_created, time_created, waiter) " 
+                            "VALUES (:type, :name, :price, :tax, :quantity, :count, :date_created, :time_created, :waiter)")
         InsertQuery.bindValue(":type",QtCore.QVariant(aTransaction.Type))
         InsertQuery.bindValue(":name",QtCore.QVariant(aTransaction.Name))
         InsertQuery.bindValue(":price",QtCore.QVariant(aTransaction.Price))
@@ -493,12 +558,13 @@ class MainWindow(QtGui.QMainWindow):
         InsertQuery.bindValue(":count",QtCore.QVariant(aTransaction.Count))
         InsertQuery.bindValue(":date_created",QtCore.QVariant(aTransaction.DateCreated))
         InsertQuery.bindValue(":time_created",QtCore.QVariant(aTransaction.TimeCreated))
+        InsertQuery.bindValue(":waiter",QtCore.QVariant(aTransaction.Waiter))
         InsertQuery.exec_()
 
     def DatabaseActiveTransactionAdd(self,aTransaction):
         InsertQuery = QtSql.QSqlQuery()
-        InsertQuery.prepare("INSERT INTO Active (type, name, price, tax, quantity, count, date_created, time_created, comment) " 
-                            "VALUES (:type, :name, :price, :tax, :quantity, :count, :date_created, :time_created, :comment)")
+        InsertQuery.prepare("INSERT INTO Active (type, name, price, tax, quantity, count, date_created, time_created, comment, waiter) " 
+                            "VALUES (:type, :name, :price, :tax, :quantity, :count, :date_created, :time_created, :comment, :waiter)")
         InsertQuery.bindValue(":type",QtCore.QVariant(aTransaction.Type))
         InsertQuery.bindValue(":name",QtCore.QVariant(aTransaction.Name))
         InsertQuery.bindValue(":price",QtCore.QVariant(aTransaction.Price))
@@ -508,6 +574,7 @@ class MainWindow(QtGui.QMainWindow):
         InsertQuery.bindValue(":date_created",QtCore.QVariant(aTransaction.DateCreated))
         InsertQuery.bindValue(":time_created",QtCore.QVariant(aTransaction.TimeCreated))
         InsertQuery.bindValue(":comment",QtCore.QVariant(aTransaction.Comment))
+        InsertQuery.bindValue(":waiter",QtCore.QVariant(aTransaction.Waiter))
         InsertQuery.exec_()
         #print InsertQuery.lastError().text()
       
@@ -523,6 +590,10 @@ class MainWindow(QtGui.QMainWindow):
         InsertQuery.exec_()
 
     def DatabaseGetUsers(self):
+        """
+        * Vrakja lista na site korisnici od tabelata Users
+          [['user1','pass'],['user2','pass'],...]
+        """
         Query = self.Database.exec_("SELECT * FROM Users")
         usr=[]
         while Query.next():
@@ -542,15 +613,15 @@ class MainWindow(QtGui.QMainWindow):
 
     def TreePopulate(self):
         self.TreeArticleList.clear()
-        # Fill Root
+        #Root
         Query = self.Database.exec_("SELECT * FROM Article WHERE parent='0'")
         while Query.next():
             self.TreeArticleAdd(Article([Query.value(i).toString() for i in range(5)]))
-        # Fill Childs
-        # Fill Root
+        #Childs
         Query = self.Database.exec_("SELECT * FROM Article WHERE parent<>'0'")
         while Query.next():
             self.TreeArticleAdd(Article([Query.value(i).toString() for i in range(5)]))
+        self.TreeArticleList.expandAll()
 
     def TreeActiveTransactionPopulate(self):
         self.ListaNaracki.clear()
@@ -568,14 +639,14 @@ class MainWindow(QtGui.QMainWindow):
         ArticleAsList = aArticle.get_list()
         ArticleAsList.insert(0,aArticle.Name.split("\n")[0])
         
-        if aArticle.Parent=="0": # Root
+        if aArticle.Parent=="0": # root
             QtGui.QTreeWidgetItem(self.TreeArticleList,ArticleAsList)
         else:
             QtGui.QTreeWidgetItem(self.TreeArticleList.findItems(aArticle.Parent,Qt.Qt.MatchExactly,1)[0],ArticleAsList)
 
     def TreeArticleEdit(self,aArticle):
         EditedItem = self.TreeArticleList.findItems(aArticle.ID,Qt.Qt.MatchRecursive,1)[0]
-        if EditedItem.text(2)=="0": #Root
+        if EditedItem.text(2)=="0": # root
             self.TreeArticleList.takeTopLevelItem(self.TreeArticleList.indexOfTopLevelItem(EditedItem))
         else:
             EditedItem.parent().takeChild(EditedItem.parent().indexOfChild(EditedItem))
@@ -601,12 +672,19 @@ class MainWindow(QtGui.QMainWindow):
         while Query.next():
             itemName  = QtGui.QTableWidgetItem(Query.value(2).toString())
             itemName.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            itemName.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
+            
             itemPrice = QtGui.QTableWidgetItem(Query.value(3).toString())
             itemPrice.setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+            itemPrice.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
+            
             itemQuant = QtGui.QTableWidgetItem(Query.value(5).toString())
             itemQuant.setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+            itemQuant.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
+
             itemSum   = QtGui.QTableWidgetItem(QtCore.QString(str(Query.value(3).toInt()[0] * Query.value(5).toInt()[0])))
             itemSum.setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+            itemSum.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
 
             self.TableNarackaPrikazLastRow = self.TableNaracka.rowCount()
             self.TableNarackaPrikaz.insertRow(self.TableNarackaPrikazLastRow)
@@ -626,6 +704,8 @@ class MainWindow(QtGui.QMainWindow):
 
         itemName  = QtGui.QTableWidgetItem(self.TreeArticleList.selectedItems()[0].text(3))
         itemName.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        itemName.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
+
         itemPrice = QtGui.QTableWidgetItem(self.TreeArticleList.selectedItems()[0].text(4))
         itemTax   = QtGui.QTableWidgetItem(self.TreeArticleList.selectedItems()[0].text(5))
 
@@ -637,6 +717,7 @@ class MainWindow(QtGui.QMainWindow):
         self.TableNaracka.clear()
         self.TableNaracka.setRowCount(0)
         self.TableNaracka.setHorizontalHeaderLabels([d2u("Артикл"),d2u("Цена"),d2u("Данок"),d2u("Количина")])
+        self.LabelError.hide()
 
     def TableNarackaClear(self):
         self.TableNarackaPrikaz.clear()
@@ -650,13 +731,13 @@ if __name__=="__main__":
     myProgram = MainWindow()
     myProgram.showFullScreen()
     #"windows", "motif", "cde", "plastique" and "cleanlooks", platform: "windowsxp", "windowsvista" and "macintosh"
-    myApp.setStyle(QtGui.QStyleFactory.create("cleanlooks")) 
+    #myApp.setStyle(QtGui.QStyleFactory.create("cleanlooks")) 
     
     #new stylesheet
-    #import os
-    #styleFile=os.path.join(os.path.split(__file__)[0],"darkorange.stylesheet")
-    #with open(styleFile,"r") as fh:
-    #    myApp.setStyleSheet(fh.read())
-    #fh.close()
+
+    styleFile="./static/style.stylesheet"
+    with open(styleFile,"r") as fh:
+        myApp.setStyleSheet(fh.read())
+    fh.close()
     myApp.exec_()
 

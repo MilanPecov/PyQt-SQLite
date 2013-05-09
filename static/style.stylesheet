@@ -1,0 +1,94 @@
+#Central {
+  background: none repeat scroll 0% 0% rgb(255, 255, 255);
+}
+
+QGroupBox {
+  font-family: verdana,arial,sans-serif;
+  font-weight: bold;
+  color: black;
+}
+
+QTableWidget,
+QTreeWidget { 
+  font-family: verdana,arial,sans-serif;
+  font-size:12px;
+  color:#333333;
+  border-width: 1px;
+  border-color: #999999;
+  background: url('./static/images/Bg-01.png');
+}
+
+QTableView::item {
+  border-width: 1px;
+  padding: 8px;
+  border-style: solid;
+  border-color: #999999;
+}
+
+QHeaderView::section {
+  border-width: 1px;
+  padding: 4px;
+  border-style: solid;
+  border-color: #999999;
+}
+
+#Active QHeaderView::section {
+  background: url('./static/images/cell-blue.jpg');
+}
+
+#New QHeaderView::section {
+  background: url('./static/images/cell-gray.jpg');
+}
+
+#LCD {
+  background: url('./static/images/Bg-02.jpg');
+}
+
+QLabel#Firma {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+QLabel#User {
+  font-size: 12px;
+}
+
+QLabel#Error {
+  color: red;
+  font-weight: bold;
+  background: white;
+  padding: 0 5px 0 5px
+}
+
+QGroupBox#New,#Active {
+  font-family: verdana,arial,sans-serif;
+  font-weight: bold;
+  font-size: 20px;
+  color:rgb(121, 68, 68);
+  border: 1px solid gray;
+  padding: 4px 0 0 0;
+  border-radius: 2px;
+  margin-top: 26px; /* leave space at the top for the title */
+  background-color: rgb(242, 242, 242);
+}
+
+QGroupBox#Active::title {
+  background: url('./static/images/cell-blue.jpg');
+}
+
+QGroupBox#New::title {
+  background: url('./static/images/cell-gray.jpg');
+}
+
+QGroupBox#Active::title,#New::title {
+     subcontrol-origin: margin;
+     subcontrol-position: top left;
+     border: 1px solid gray;
+     border-radius: 0px;
+     padding: 0 5px 0 5px;
+}
+
+QToolBar {
+  background: none repeat scroll 0% 0% rgb(242, 242, 242);
+  text-align: center;
+}

@@ -7,19 +7,23 @@ def d2u(text):
     return text.decode('utf-8')
 
 class UsersDialog(QtGui.QDialog):
+    """
+    * Forma za dodavanje ili brisenje na korisnici
+
+    * Query: lista od sozdadeni korisnici
+    """
     def __init__(self,Parent,Query=None):
         QtGui.QDialog.__init__(self,Parent)
         self.setWindowTitle(d2u("Корисници"))
-        self.setWindowIcon(QtGui.QIcon("icons/User.ico"))
+        self.setWindowIcon(QtGui.QIcon("static/icons/User.ico"))
 
+        self.Query = Query
         self.User=User()
 
         mainLayout = QtGui.QVBoxLayout(self)
 
         self.listUsers = QtGui.QListWidget()
         self.listUsers.setSortingEnabled(True)
-        self.Query = Query
-        #self.selectedUser = self.listUsers.selectedItems()
 
         self.textName = QtGui.QLineEdit(self)
         self.textName.setPlaceholderText(d2u('Корисничко име'))
@@ -38,6 +42,7 @@ class UsersDialog(QtGui.QDialog):
         self.buttonDelete.setFixedWidth(200)
         self.buttonDelete.clicked.connect(self.DeleteClicked)
 
+        #layout
         signIn = QtGui.QVBoxLayout() 
         self.groupBox1 = QtGui.QGroupBox(d2u('Создади нов корисник'))
         self.groupBox2 = QtGui.QGroupBox(d2u('Избриши го селектираниот корисник'))
@@ -70,12 +75,20 @@ class UsersDialog(QtGui.QDialog):
         self.sign = 1
         self.User.Name = self.textName.text()
         self.User.Pass = self.textPass.text()
-        self.accept()
+        if self.User.Name and self.User.Pass:
+            self.accept()
+        else:
+            QtGui.QMessageBox.warning(
+               self, d2u('Грешка'), d2u('Немате внесено корисник или лозинка'))
 
     def DeleteClicked(self):
         self.delete = 1
         self.User.Name = unicode(self.listUsers.currentItem().text())
-        self.accept()
+        if self.User.Name:
+            self.accept()
+        else:
+            QtGui.QMessageBox.warning(
+               self, d2u('Грешка'), d2u('Немате селектирано корисник'))
 
     def FillUsersList(self):
         while self.Query.next():
@@ -83,6 +96,11 @@ class UsersDialog(QtGui.QDialog):
 
 
 class Login(QtGui.QDialog):
+    """
+    * Forma za najavuvanje
+
+    * users: lista na korisnici [['user1','pass1'],[...],...]
+    """
     def __init__(self,Parent,users):
         QtGui.QDialog.__init__(self,Parent)
 
@@ -105,7 +123,7 @@ class Login(QtGui.QDialog):
         self.buttonLogin.clicked.connect(self.LoginClicked)
 
         self.picture = QtGui.QLabel()
-        self.picture.setPixmap(QtGui.QPixmap("icons/drinks.jpg" ))
+        self.picture.setPixmap(QtGui.QPixmap("static/images/drinks.jpg" ))
         self.picture.setAlignment(QtCore.Qt.AlignCenter)
  
         #za crna pozadina
@@ -121,6 +139,9 @@ class Login(QtGui.QDialog):
         mainLayout.addLayout(loginButtons)
         self.setLayout(mainLayout)
 
+        self.Name = ''
+        self.Pass = ''
+
     def reject(self): #ESC key = OFF
         pass
 
@@ -128,16 +149,22 @@ class Login(QtGui.QDialog):
         name = self.textName.text()
         password = self.textPass.text()
         if [name,password] in self.users:
+            self.Name=name
+            self.Pass=password
             self.accept()
         else:
             QtGui.QMessageBox.warning(
                 self, d2u('Грешка'), d2u('Погрешно корисничко име или лозинка'))
 
 class CalendarDialog(QtGui.QDialog):
+    """
+    Kalendar za izbor na datum za koj se
+    pravi dneven izvestaj
+    """
     def __init__(self,Parent):
         QtGui.QDialog.__init__(self,Parent)
         self.setWindowTitle(d2u('Календар'))
-        self.setWindowIcon(QtGui.QIcon("icons/Add.ico"))
+        self.setWindowIcon(QtGui.QIcon("static/icons/Add.ico"))
         self.resize(300,100)
         
         vbox = QtGui.QVBoxLayout()
@@ -164,32 +191,19 @@ class CalendarDialog(QtGui.QDialog):
         self.selectedDate = self.cal.selectedDate()
         self.accept()
 
-class InactivityFilter(QtCore.QTimer):
-    """
-    Tajmer sto se restartira sekojpat koga
-    korisnikot ima nekoja aktivnost vo glavnata aplikacija
-    """
-    def __init__(self, parent=None):
-        super(InactivityFilter, self).__init__(parent)
-        
-        self.setInterval(1) #milliseconds
-        self.start()
-
-    def eventFilter(self, object, event):
-        if event.type() in (QtCore.QEvent.MouseMove, QtCore.QEvent.MouseButtonPress, QtCore.QEvent.HoverMove, QtCore.QEvent.KeyPress, QtCore.QEvent.KeyRelease, ):
-            self.start(10000)
-        return QtCore.QObject.eventFilter(self, object, event)
-
 class AddEditArticle(QtGui.QDialog):
+    """
+    Dodavanje ili ureduvanje na artikli
+    """
     def __init__(self,Parent=None,aArticle=None):
         QtGui.QDialog.__init__(self,Parent)
         self.myArticle=Article()
         if not aArticle:
             self.setWindowTitle(d2u("Внеси Артикл"))
-            self.setWindowIcon(QtGui.QIcon("icons/Add.ico"))
+            self.setWindowIcon(QtGui.QIcon("static/icons/Add.ico"))
         else:
             self.setWindowTitle(d2u("Промени Артикл"))
-            self.setWindowIcon(QtGui.QIcon("icons/Edit.ico"))
+            self.setWindowIcon(QtGui.QIcon("static/icons/Edit.ico"))
             self.myArticle=aArticle
         self.CreateCentralWidget()
         self.FillArticleWidgets()
@@ -255,3 +269,19 @@ class AddEditArticle(QtGui.QDialog):
         self.myArticle.Tax=unicode(self.TextTax.text())
  
         self.accept()
+
+class InactivityFilter(QtCore.QTimer):
+    """
+    Tajmer sto se restartira sekojpat koga
+    korisnikot ima nekoja aktivnost vo glavnata aplikacija
+    """
+    def __init__(self, parent=None):
+        super(InactivityFilter, self).__init__(parent)
+        
+        self.setInterval(1) #milliseconds
+        self.start()
+
+    def eventFilter(self, object, event):
+        if event.type() in (QtCore.QEvent.MouseMove, QtCore.QEvent.MouseButtonPress, QtCore.QEvent.HoverMove, QtCore.QEvent.KeyPress, QtCore.QEvent.KeyRelease, ):
+            self.start(20000)
+        return QtCore.QObject.eventFilter(self, object, event)
