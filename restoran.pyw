@@ -6,7 +6,7 @@
 import sys
 import threading
 from PyQt4 import QtGui, QtCore, Qt, QtSql
-from windows import Login, CalendarDialog, InactivityFilter, AddEditArticle, UsersDialog
+from windows import *
 from base import Article, Transaction, User
 
 inactivity_timeout=1 #dali da ima log
@@ -385,34 +385,34 @@ class MainWindow(QtGui.QMainWindow):
         """
         * Prikazuva dneven izvestaj za selektiraniot den od kalendarot
         
-        * TODO: nacinot na vizuelizacija i zacuvuvanje vo PDF file
+        * TODO: zacuvuvanje vo PDF ili EXCEL file
         """
         Calendar = CalendarDialog(self)
         if Calendar.exec_():
             date = Calendar.selectedDate.toPyDate()
             Query = self.Database.exec_("SELECT * FROM Trans WHERE date_created='%s'" % str(date))
-            count_dict={}   #key: broj_na_smetka ; value: iznos
-            article_dict={} #key: artikl; value: iznos
+            counts={}   #key: broj_na_smetka ; value: iznos
+            articles={} #key: artikl; value: [iznos, edinecna cena na artikl]
             while Query.next():
-                name  = str(Query.value(2).toString().toUtf8())
+                name  = unicode(str(Query.value(2).toString().toUtf8()),"utf-8")
+                #print name,type(name)
                 price = Query.value(3).toInt()[0]
                 quantity = Query.value(5).toInt()[0]
                 count = str(Query.value(6).toString())
                 #print name,price,quantity,count
-                if count not in count_dict:
-                    count_dict[count] = quantity * price
-                elif count in count_dict:
-                    count_dict[count] = count_dict.get(count) + quantity * price
-                if name not in article_dict:
-                    article_dict[name] = quantity * price
-                elif name in article_dict:
-                    article_dict[name] = article_dict.get(name) + quantity * price
-           
-            print count_dict
-            print article_dict
-            print "Vkupno po smetka: %s " % sum(count_dict.values())
-            print "Vkupno po artikl: %s " % sum(article_dict.values())
-
+                if count not in counts:
+                    counts[count] = quantity * price
+                elif count in counts:
+                    counts[count] = counts.get(count) + quantity * price
+                if name not in articles:
+                    articles[name] = [quantity * price, price]
+                elif name in articles:
+                    articles[name][0] = articles.get(name)[0] + quantity * price
+            
+        DailyReport = DailyReportDialog(self,counts,articles)
+        DailyReport.show()
+        if DailyReport.exec_():
+            pass
  
     def TriggeredUsers(self):
         """
@@ -703,7 +703,6 @@ class MainWindow(QtGui.QMainWindow):
         self.TableNaracka.insertRow(self.TableNarackaLastRow)
 
         itemName  = QtGui.QTableWidgetItem(self.TreeArticleList.selectedItems()[0].text(3))
-        itemName.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         itemName.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
 
         itemPrice = QtGui.QTableWidgetItem(self.TreeArticleList.selectedItems()[0].text(4))

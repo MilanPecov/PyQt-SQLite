@@ -2,9 +2,129 @@
 from PyQt4 import QtGui,QtCore,Qt
 from base import Article,User
 
+font = QtGui.QFont('verdana', 9)
+
 def d2u(text):
     "konverzija vo UTF-8"
     return text.decode('utf-8')
+
+class DailyReportDialog(QtGui.QDialog):
+    """
+    * Forma koja prikazuva dneven izvestaj po smetki i artikli
+
+    * counts(dict) - napraveni smetki
+    * articles(dict) - potroseni artikli
+    """
+    def __init__(self,Parent,counts,articles):
+        QtGui.QDialog.__init__(self,Parent)
+        self.setWindowTitle(d2u("Дневен извештај"))
+        self.setWindowIcon(QtGui.QIcon("static/icons/Report.ico"))
+        self.resize(700,700)
+
+        self.counts = counts
+        self.countsSum = str(sum(self.counts.values()))
+        self.articles = articles
+        self.articlesSum = str(sum([self.articles.values()[i][0] for i in range(len(articles.values()))]))
+
+        mainLayout = QtGui.QHBoxLayout(self)
+
+        #tabela za dneven izvestaj po smetki
+        self.tableCounts = QtGui.QTableWidget()
+        self.tableCounts.setColumnCount(2)
+        self.tableCounts.horizontalHeader().setFont(font)
+        self.tableCounts.setHorizontalHeaderLabels([d2u("бр.Сметка"),d2u("Износ")])
+        self.tableCounts.setRowCount(0)
+        self.tableCounts.verticalHeader().setVisible(False)
+        self.tableCounts.setColumnWidth(0,80)
+        self.tableCounts.setColumnWidth(1,80)
+        self.tableCounts.setMaximumWidth(190)
+
+        #tabela za dvenen izvestaj po artikli
+        self.tableArticles = QtGui.QTableWidget()
+        self.tableArticles.setColumnCount(3)
+        self.tableArticles.horizontalHeader().setFont(font)
+        self.tableArticles.setHorizontalHeaderLabels([d2u("Артикл"),d2u("Продадено"),d2u("Износ")])
+        self.tableArticles.setRowCount(0)
+        self.tableArticles.verticalHeader().setVisible(False)
+        self.tableArticles.setColumnWidth(1,80)
+        self.tableArticles.setColumnWidth(2,80)
+        self.tableArticles.horizontalHeader().setResizeMode(0, QtGui.QHeaderView.Stretch)
+
+        self.FillTableCounts()
+        self.FillTableArticles()
+
+        #layout
+        mainLayout.addWidget(self.tableCounts)
+        mainLayout.addWidget(self.tableArticles)
+
+    def FillTableCounts(self):
+        for count in self.counts.items():
+            self.tableCountsLastRow = self.tableCounts.rowCount()
+            self.tableCounts.insertRow(self.tableCountsLastRow)
+
+            itemCount = QtGui.QTableWidgetItem(count[0])
+            itemCount.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+            itemCount.setFlags(QtCore.Qt.ItemIsEnabled)
+
+            itemValue = QtGui.QTableWidgetItem(str(count[1]))
+            itemValue.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+            itemValue.setFlags(QtCore.Qt.ItemIsEnabled)
+
+            self.tableCounts.setItem(self.tableCountsLastRow,0,itemCount)
+            self.tableCounts.setItem(self.tableCountsLastRow,1,itemValue)
+
+        self.tableCountsLastRow = self.tableCounts.rowCount()
+        self.tableCounts.insertRow(self.tableCountsLastRow)
+
+        itemSum = QtGui.QTableWidgetItem(d2u('Вкупно'))
+        itemSum.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        itemSum.setFlags(QtCore.Qt.ItemIsEnabled)
+
+        itemSumValue = QtGui.QTableWidgetItem(self.countsSum)
+        itemSumValue.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        itemSumValue.setFlags(QtCore.Qt.ItemIsEnabled)
+
+        self.tableCounts.setItem(self.tableCountsLastRow,0,itemSum)
+        self.tableCounts.setItem(self.tableCountsLastRow,1,itemSumValue)
+
+    def FillTableArticles(self):
+        for article in self.articles.items():
+            self.tableArticlesLastRow = self.tableArticles.rowCount()
+            self.tableArticles.insertRow(self.tableArticlesLastRow)
+
+            name = article[0]
+            quantity = article[1][0] / article[1][1]
+            value = article[1][0]
+
+            itemArticle = QtGui.QTableWidgetItem(name)
+            itemArticle.setFlags(QtCore.Qt.ItemIsEnabled)
+
+            itemQuantity = QtGui.QTableWidgetItem(str(quantity))
+            itemQuantity.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+            itemQuantity.setFlags(QtCore.Qt.ItemIsEnabled)
+
+            itemValue = QtGui.QTableWidgetItem(str(value))
+            itemValue.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+            itemValue.setFlags(QtCore.Qt.ItemIsEnabled)
+
+            self.tableArticles.setItem(self.tableArticlesLastRow,0,itemArticle)
+            self.tableArticles.setItem(self.tableArticlesLastRow,1,itemQuantity)
+            self.tableArticles.setItem(self.tableArticlesLastRow,2,itemValue)
+
+        self.tableArticlesLastRow = self.tableArticles.rowCount()
+        self.tableArticles.insertRow(self.tableArticlesLastRow)
+
+        itemSum = QtGui.QTableWidgetItem(d2u('Вкупно'))
+        itemSum.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        itemSum.setFlags(QtCore.Qt.ItemIsEnabled)
+
+        itemSumValue = QtGui.QTableWidgetItem(self.articlesSum)
+        itemSumValue.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        itemSumValue.setFlags(QtCore.Qt.ItemIsEnabled)
+
+        self.tableArticles.setItem(self.tableArticlesLastRow,1,itemSum)
+        self.tableArticles.setItem(self.tableArticlesLastRow,2,itemSumValue)
+        
 
 class UsersDialog(QtGui.QDialog):
     """
