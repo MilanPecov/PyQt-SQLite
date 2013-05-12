@@ -8,6 +8,13 @@ QGroupBox {
   color: black;
 }
 
+QHeaderView::section {
+  border-width: 1px;
+  padding: 4px;
+  border-style: solid;
+  border-color: #999999;
+}
+
 QTableWidget,
 QTreeWidget { 
   font-family: verdana,arial,sans-serif;
@@ -21,13 +28,6 @@ QTreeWidget {
 QTableView::item {
   border-width: 1px;
   padding: 8px;
-  border-style: solid;
-  border-color: #999999;
-}
-
-QHeaderView::section {
-  border-width: 1px;
-  padding: 4px;
   border-style: solid;
   border-color: #999999;
 }
@@ -61,14 +61,12 @@ QLabel#Error {
 }
 
 QGroupBox#New,#Active {
-  font-family: verdana,arial,sans-serif;
-  font-weight: bold;
   font-size: 20px;
   color:rgb(121, 68, 68);
   border: 1px solid gray;
   padding: 4px 0 0 0;
   border-radius: 2px;
-  margin-top: 26px; /* leave space at the top for the title */
+  margin-top: 26px;
   background-color: rgb(242, 242, 242);
 }
 

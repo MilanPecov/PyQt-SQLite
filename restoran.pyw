@@ -4,10 +4,10 @@
 '''
 
 import sys
-import threading
 from PyQt4 import QtGui, QtCore, Qt, QtSql
 from windows import *
 from base import Article, Transaction, User
+
 
 inactivity_timeout=1 #dali da ima log
 
@@ -409,6 +409,7 @@ class MainWindow(QtGui.QMainWindow):
                 elif name in articles:
                     articles[name][0] = articles.get(name)[0] + quantity * price
             
+        counts[u"Вкупно".encode("utf-8")] = str(sum(counts.values()))
         DailyReport = DailyReportDialog(self,counts,articles)
         DailyReport.show()
         if DailyReport.exec_():
@@ -670,28 +671,21 @@ class MainWindow(QtGui.QMainWindow):
 
         Query = self.Database.exec_("SELECT * FROM Active WHERE count='%s'" % count)
         while Query.next():
-            itemName  = QtGui.QTableWidgetItem(Query.value(2).toString())
-            itemName.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            itemName.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
-            
-            itemPrice = QtGui.QTableWidgetItem(Query.value(3).toString())
-            itemPrice.setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-            itemPrice.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
-            
-            itemQuant = QtGui.QTableWidgetItem(Query.value(5).toString())
-            itemQuant.setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-            itemQuant.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
+            count=0
+            self.TableNarackaPrikazLastRow = self.TableNaracka.rowCount()
+            self.TableNarackaPrikaz.insertRow(self.TableNarackaPrikazLastRow)
+            for i in (2,3,5):
+                #i=name,price,quant
+                item  = QtGui.QTableWidgetItem(Query.value(i).toString())
+                item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                item.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
+                self.TableNarackaPrikaz.setItem(self.TableNarackaPrikazLastRow,count,item)
+                count += 1
 
-            itemSum   = QtGui.QTableWidgetItem(QtCore.QString(str(Query.value(3).toInt()[0] * Query.value(5).toInt()[0])))
+            itemSum = QtGui.QTableWidgetItem(QtCore.QString(str(Query.value(3).toInt()[0] * Query.value(5).toInt()[0])))
             itemSum.setTextAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
             itemSum.setFlags(QtCore.Qt.ItemIsEnabled) #read-only
 
-            self.TableNarackaPrikazLastRow = self.TableNaracka.rowCount()
-            self.TableNarackaPrikaz.insertRow(self.TableNarackaPrikazLastRow)
-
-            self.TableNarackaPrikaz.setItem(self.TableNarackaPrikazLastRow,0,itemName)
-            self.TableNarackaPrikaz.setItem(self.TableNarackaPrikazLastRow,1,itemPrice)
-            self.TableNarackaPrikaz.setItem(self.TableNarackaPrikazLastRow,2,itemQuant)
             self.TableNarackaPrikaz.setItem(self.TableNarackaPrikazLastRow,3,itemSum)
             
             self.Sum += Query.value(3).toInt()[0] * Query.value(5).toInt()[0]

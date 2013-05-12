@@ -1,6 +1,7 @@
 # coding=utf-8
 from PyQt4 import QtGui,QtCore,Qt
 from base import Article,User
+import operator
 
 font = QtGui.QFont('verdana', 9)
 
@@ -22,7 +23,6 @@ class DailyReportDialog(QtGui.QDialog):
         self.resize(700,700)
 
         self.counts = counts
-        self.countsSum = str(sum(self.counts.values()))
         self.articles = articles
         self.articlesSum = str(sum([self.articles.values()[i][0] for i in range(len(articles.values()))]))
 
@@ -58,37 +58,21 @@ class DailyReportDialog(QtGui.QDialog):
         mainLayout.addWidget(self.tableArticles)
 
     def FillTableCounts(self):
-        for count in self.counts.items():
+        #sorted by value
+        counts_sorted = sorted(self.counts.iteritems(), key=operator.itemgetter(1))
+        for count in counts_sorted:
             self.tableCountsLastRow = self.tableCounts.rowCount()
             self.tableCounts.insertRow(self.tableCountsLastRow)
-
-            itemCount = QtGui.QTableWidgetItem(count[0])
-            itemCount.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
-            itemCount.setFlags(QtCore.Qt.ItemIsEnabled)
-
-            itemValue = QtGui.QTableWidgetItem(str(count[1]))
-            itemValue.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
-            itemValue.setFlags(QtCore.Qt.ItemIsEnabled)
-
-            self.tableCounts.setItem(self.tableCountsLastRow,0,itemCount)
-            self.tableCounts.setItem(self.tableCountsLastRow,1,itemValue)
-
-        self.tableCountsLastRow = self.tableCounts.rowCount()
-        self.tableCounts.insertRow(self.tableCountsLastRow)
-
-        itemSum = QtGui.QTableWidgetItem(d2u('Вкупно'))
-        itemSum.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
-        itemSum.setFlags(QtCore.Qt.ItemIsEnabled)
-
-        itemSumValue = QtGui.QTableWidgetItem(self.countsSum)
-        itemSumValue.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
-        itemSumValue.setFlags(QtCore.Qt.ItemIsEnabled)
-
-        self.tableCounts.setItem(self.tableCountsLastRow,0,itemSum)
-        self.tableCounts.setItem(self.tableCountsLastRow,1,itemSumValue)
+            for i in range(2):
+                #i=count,value (columns)
+                item = QtGui.QTableWidgetItem(d2u(str(count[i])))
+                item.setTextAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                self.tableCounts.setItem(self.tableCountsLastRow,i,item)
 
     def FillTableArticles(self):
-        for article in self.articles.items():
+        articles_sorted = sorted(self.articles.iteritems(), key=operator.itemgetter(0))
+        for article in articles_sorted:
             self.tableArticlesLastRow = self.tableArticles.rowCount()
             self.tableArticles.insertRow(self.tableArticlesLastRow)
 
